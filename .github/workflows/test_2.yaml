@@ -8,7 +8,7 @@ on:
 
 jobs:
   my-job-dev:
-#    if: contains('refs/tags/dev', github.ref)
+    if: contains(github.ref, 'refs/tags/dev')
     runs-on: ubuntu-latest
     steps:
       - name: my-step-dev
@@ -16,7 +16,7 @@ jobs:
           echo "Hello DEV!"
           echo "${{ github.ref }}"
   my-job-prod:
-    if: contains('refs/tags/prod', github.ref)
+    if: contains(github.ref, 'refs/tags/prod')
     runs-on: ubuntu-latest
     steps:
       - name: my-step-prod
