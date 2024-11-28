@@ -1,0 +1,29 @@
+name: test-tags
+
+on:
+  push:
+    tags:
+      - dev-**
+      - prod-**
+
+jobs:
+  if:
+    contains('
+      refs/heads/dev
+    ', github.ref)
+  my-job-dev:
+    runs-on: ubuntu-latest
+    steps:
+      - name: my-step-dev
+        run: echo "Hello DEV!"
+
+jobs:
+  if:
+    contains('
+      refs/heads/dev
+    ', github.ref)
+  my-job-prod:
+    runs-on: ubuntu-latest
+    steps:
+      - name: my-step-prod
+        run: echo "Hello PROD!"
