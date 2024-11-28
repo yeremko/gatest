@@ -10,7 +10,7 @@ jobs:
   my-job-dev:
     if:
       contains('
-        refs/heads/dev
+        refs/tags/dev
       ', github.ref)
     runs-on: ubuntu-latest
     steps:
@@ -19,7 +19,7 @@ jobs:
   my-job-prod:
     if:
       contains('
-        refs/heads/dev
+        refs/tags/prod
       ', github.ref)
     runs-on: ubuntu-latest
     steps:
