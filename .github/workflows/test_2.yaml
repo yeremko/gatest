@@ -7,22 +7,20 @@ on:
       - prod-**
 
 jobs:
-  if:
-    contains('
-      refs/heads/dev
-    ', github.ref)
   my-job-dev:
+    if:
+      contains('
+        refs/heads/dev
+      ', github.ref)
     runs-on: ubuntu-latest
     steps:
       - name: my-step-dev
         run: echo "Hello DEV!"
-
-jobs:
-  if:
-    contains('
-      refs/heads/dev
-    ', github.ref)
   my-job-prod:
+    if:
+      contains('
+        refs/heads/dev
+      ', github.ref)
     runs-on: ubuntu-latest
     steps:
       - name: my-step-prod
