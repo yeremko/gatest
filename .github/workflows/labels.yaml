@@ -6,6 +6,7 @@ on:
       - closed
 jobs:
   debug_event:
+    if: ${{ github.event.action == 'labeled' && github.event.label.name == 'bug' && contains(toJson(github.event.pull_request.labels), 'Create-DSE') && github.event.pull_request.state == 'open' }}
     runs-on: ubuntu-latest
     steps:
       - name: Dump GitHub event payload
