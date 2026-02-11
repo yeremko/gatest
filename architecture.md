@@ -17,10 +17,12 @@ flowchart TB
     end
 
     subgraph Application["Application Layer"]
+        direction LR
         App[GradHub: PHP · Front-end & Back-end]
         QueueWorker[Queue Worker: php artisan queue:work]
         Scheduler[Scheduler: php artisan schedule:work]
         ReportServer[Report Server: Laravel · Reports]
+        App ~~~ QueueWorker ~~~ Scheduler ~~~ ReportServer
     end
 
     subgraph Data["Data & Storage"]
