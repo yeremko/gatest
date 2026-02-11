@@ -18,9 +18,9 @@ flowchart TB
 
     subgraph Application["Application Layer"]
         App[GradHub: PHP · Front-end & Back-end]
-        ReportServer[Report Server: Laravel · Reports]
         QueueWorker[Queue Worker: php artisan queue:work]
         Scheduler[Scheduler: php artisan schedule:work]
+        ReportServer[Report Server: Laravel · Reports]
     end
 
     subgraph Data["Data & Storage"]
@@ -54,7 +54,7 @@ flowchart TB
 |-----------|------|
 | **Reverse Proxy** | Single entry point for users. Routes requests: path like `/ReportServer` (e.g. `https://gradhub/ReportServer`) → Report Server; all other paths → GradHub app. |
 | **GradHub** | Main Laravel app: serves web UI, API, and server-side logic. |
-| **Report Server** | Laravel-based service for report generation and delivery. |
+| **Report Server** | Laravel-based service for report generation and delivery. Not connected to GradHub, Queue, or Scheduler; uses MySQL, Redis, and own file storage (local or S3). |
 | **Queue Worker** | Runs `queue:work` to process jobs from Redis queues (async tasks). |
 | **Scheduler** | Runs `schedule:work` to execute Laravel scheduled tasks (cron-like). |
 | **MySQL** | Primary relational database for application data. |
@@ -71,9 +71,9 @@ flowchart LR
         subgraph Network["Network: sail (bridge)"]
             Proxy[Reverse Proxy: 80, 443]
             App[app: GradHub: 80]
-            ReportServer[reportserver: 80]
             Queue[queue: queue:work redis]
             Sched[scheduler: schedule:work]
+            ReportServer[reportserver: 80]
             MySQL[(mysql: 3306)]
             Redis[(redis)]
         end
@@ -217,9 +217,9 @@ flowchart LR
     subgraph Processes["Processes"]
         Proxy[Reverse Proxy]
         Web[GradHub]
-        ReportServer[Report Server]
         Queue[Queue Worker]
         Cron[Scheduler]
+        ReportServer[Report Server]
     end
 
     PHP --> Laravel
