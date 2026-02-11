@@ -1,10 +1,25 @@
-name: hello-world-2
-on: 
-  workflow_dispatch:
+name: test-tags
+
+on:
+  push:
+    tags:
+      - dev-**
+      - prod-**
+
 jobs:
-  my-job-2:
+  my-job-dev:
+    if: contains(github.ref, 'refs/tags/dev')
     runs-on: ubuntu-latest
     steps:
-      - name: my-step-2
-        run: echo "Hello The Second World!"
-
+      - name: my-step-dev
+        run: |
+          echo "Hello DEV!"
+          echo "${{ github.ref }}"
+  my-job-prod:
+    if: contains(github.ref, 'refs/tags/prod')
+    runs-on: ubuntu-latest
+    steps:
+      - name: my-step-prod
+        run: |
+          echo "Hello PROD!"
+          echo "${{ github.ref }}"
