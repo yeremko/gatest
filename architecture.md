@@ -1,6 +1,6 @@
-# Solution Architecture — GradHub/PhotoWeb
+# Solution Architecture — GradHub
 
-This document describes the architecture of the GradHub/PhotoWeb solution built with PHP Laravel, including runtime topology, data flows, and deployment model.
+This document describes the architecture of the GradHub solution built with PHP Laravel, including runtime topology, data flows, and deployment model.
 
 ---
 
@@ -12,8 +12,12 @@ flowchart TB
         Browser[Web Browser]
     end
 
+    subgraph Edge["Edge"]
+        Proxy[Reverse Proxy]
+    end
+
     subgraph Application["Application Layer"]
-        App[GradHub/PhotoWeb: PHP · Front-end & Back-end]
+        App[GradHub: PHP · Front-end & Back-end]
         ReportServer[Report Server: Laravel · Reports]
         QueueWorker[Queue Worker: php artisan queue:work]
         Scheduler[Scheduler: php artisan schedule:work]
@@ -25,8 +29,9 @@ flowchart TB
         FS[File Storage: Local / S3]
     end
 
-    Browser -->|HTTP/HTTPS| App
-    Browser -->|HTTP/HTTPS| ReportServer
+    Browser -->|HTTPS| Proxy
+    Proxy -->|path /ReportServer| ReportServer
+    Proxy -->|all other paths| App
     App --> MySQL
     App --> Redis
     App --> FS
@@ -47,8 +52,9 @@ flowchart TB
 
 | Component | Role |
 |-----------|------|
-| **GradHub/PhotoWeb** | Main Laravel app: serves web UI, API, and server-side logic. |
-| **Report Server** | Laravel-based service for report generation and delivery (e.g. port 8345). |
+| **Reverse Proxy** | Single entry point for users. Routes requests: path like `/ReportServer` (e.g. `https://gradhub/ReportServer`) → Report Server; all other paths → GradHub app. |
+| **GradHub** | Main Laravel app: serves web UI, API, and server-side logic. |
+| **Report Server** | Laravel-based service for report generation and delivery. |
 | **Queue Worker** | Runs `queue:work` to process jobs from Redis queues (async tasks). |
 | **Scheduler** | Runs `schedule:work` to execute Laravel scheduled tasks (cron-like). |
 | **MySQL** | Primary relational database for application data. |
@@ -63,8 +69,9 @@ flowchart TB
 flowchart LR
     subgraph DockerHost["Docker Host"]
         subgraph Network["Network: sail (bridge)"]
-            App[laravel.test: GradHub/PhotoWeb: 80 → APP_PORT]
-            ReportServer[reportserver: 80 → 8345]
+            Proxy[Reverse Proxy: 80, 443]
+            App[app: GradHub: 80]
+            ReportServer[reportserver: 80]
             Queue[queue: queue:work redis]
             Sched[scheduler: schedule:work]
             MySQL[(mysql: 3306)]
@@ -72,8 +79,9 @@ flowchart LR
         end
     end
 
-    User[User] -->|APP_PORT| App
-    User -->|8345| ReportServer
+    User[User] -->|HTTPS| Proxy
+    Proxy -->|/ReportServer| ReportServer
+    Proxy -->|other| App
     App --> MySQL
     App --> Redis
     ReportServer --> MySQL
@@ -84,9 +92,10 @@ flowchart LR
     Sched --> Redis
 ```
 
-- **laravel.test**: GradHub/PhotoWeb web server (e.g. Nginx/Apache + PHP); exposes app port and optionally Vite dev port.
-- **reportserver**: Report Server (Laravel); exposes port 8345 for report generation and delivery.
-- **queue**: Same app image as GradHub/PhotoWeb, entrypoint `php artisan queue:work redis`; processes jobs from Redis.
+- **Reverse Proxy**: Single entry (e.g. ports 80/443). Routes `https://gradhub/ReportServer` (or path containing `/ReportServer`) to Report Server; all other requests to GradHub app.
+- **app**: GradHub web server (e.g. Nginx/Apache + PHP); internal port 80; no direct user access in production.
+- **reportserver**: Report Server (Laravel); internal port 80; reached only via reverse proxy path.
+- **queue**: Same app image as GradHub, entrypoint `php artisan queue:work redis`; processes jobs from Redis.
 - **scheduler**: Same app image, entrypoint `php artisan schedule:work`; runs cron-like tasks.
 - **mysql**: MySQL 8.0; port forwarded to host (e.g. 3309); persistent volume for data.
 - **redis**: Redis; used by app, report server, queue, and scheduler (no port exposed unless configured).
@@ -100,12 +109,15 @@ flowchart LR
 ```mermaid
 sequenceDiagram
     participant User
-    participant App as GradHub/PhotoWeb
+    participant Proxy as Reverse Proxy
+    participant App as GradHub
     participant Redis
     participant MySQL
     participant Storage
 
-    User->>App: HTTP Request
+    Note over Proxy: /ReportServer → Report Server<br/>all other paths → GradHub
+    User->>Proxy: HTTPS Request
+    Proxy->>App: Forward (non-ReportServer)
     App->>Redis: Session / Cache lookup
     alt Cache hit
         Redis-->>App: Cached data
@@ -115,14 +127,15 @@ sequenceDiagram
         App->>Redis: Store in cache
     end
     App->>Storage: Read/Write files (if needed)
-    App-->>User: HTTP Response
+    App-->>Proxy: HTTP Response
+    Proxy-->>User: HTTPS Response
 ```
 
 ### 4.2 Asynchronous Job Flow
 
 ```mermaid
 sequenceDiagram
-    participant App as GradHub/PhotoWeb
+    participant App as GradHub
     participant Redis
     participant QueueWorker
     participant MySQL
@@ -142,7 +155,7 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant Scheduler
-    participant App as GradHub/PhotoWeb
+    participant App as GradHub
     participant MySQL
     participant Redis
     participant Storage
@@ -162,7 +175,7 @@ sequenceDiagram
 
 ```mermaid
 flowchart TB
-    subgraph Apps["GradHub/PhotoWeb & Report Server"]
+    subgraph Apps["GradHub & Report Server"]
         FS[Filesystem Facade: Storage::]
     end
 
@@ -202,7 +215,8 @@ flowchart LR
     end
 
     subgraph Processes["Processes"]
-        Web[GradHub/PhotoWeb]
+        Proxy[Reverse Proxy]
+        Web[GradHub]
         ReportServer[Report Server]
         Queue[Queue Worker]
         Cron[Scheduler]
@@ -214,6 +228,8 @@ flowchart LR
     Laravel --> Redis
     Laravel --> Local
     Laravel --> S3
+    Proxy --> Web
+    Proxy --> ReportServer
     Web --> Laravel
     ReportServer --> Laravel
     Queue --> Laravel
@@ -224,9 +240,9 @@ flowchart LR
 
 ## 7. Deployment Context (Docker Compose)
 
-- **Images**: GradHub/PhotoWeb and Report Server use PHP 8.2 Sail-based images; MySQL and Redis use official images.
-- **Volumes**: App code mounted into `laravel.test`, `reportserver`, `queue`, and `scheduler`; MySQL data in a dedicated volume.
-- **Dependencies**: `laravel.test`, `queue`, and `scheduler` depend on `mysql` and `redis`; queue and scheduler start after DB/Redis are available. `reportserver` has no `depends_on` in compose (configure as needed).
+- **Images**: GradHub (app) and Report Server use PHP 8.2 Sail-based images; MySQL and Redis use official images. Reverse proxy uses Nginx, Caddy, or similar.
+- **Volumes**: App code mounted into `app`, `reportserver`, `queue`, and `scheduler`; MySQL data in a dedicated volume.
+- **Dependencies**: `app`, `queue`, and `scheduler` depend on `mysql` and `redis`; queue and scheduler start after DB/Redis are available. `reportserver` has no `depends_on` in compose (configure as needed). Reverse proxy typically depends on `app` and `reportserver` being up.
 - **Scaling**: Multiple `queue` replicas can be added for higher throughput; single `scheduler` is typically sufficient.
 
 ---
