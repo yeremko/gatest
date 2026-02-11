@@ -31,8 +31,8 @@ flowchart TB
         FS[File Storage: Local / S3]
     end
 
-    subgraph External["External Systems"]
-        ERMC[ERMC]
+    subgraph External["ERMC"]
+        ERMC[ERMC APIs]
         SSRS[SSRS]
     end
 
@@ -69,7 +69,7 @@ flowchart TB
 | **MySQL** | Primary relational database for application data. |
 | **Redis** | Cache, sessions, and queue driver (and optionally broadcast). |
 | **File Storage** | Temp, cache, and data files; backend can be local disk or S3. |
-| **ERMC** | *(External)* System GradHub integrates with; GradHub sends requests to ERMC. |
+| **ERMC APIs** | *(External)* System GradHub integrates with; GradHub sends requests to ERMC APIs. |
 | **SSRS** | *(External)* Report service Report Server integrates with; Report Server sends requests to SSRS. |
 
 ---
